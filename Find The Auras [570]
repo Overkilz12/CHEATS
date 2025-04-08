@@ -2,31 +2,27 @@ local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local hrp = character:WaitForChild("HumanoidRootPart")
 
--- Respawn-safe handling
 player.CharacterAdded:Connect(function(char)
 	character = char
-	task.wait() -- tiny wait to make sure HRP exists
+	task.wait()
 	hrp = character:WaitForChild("HumanoidRootPart")
 end)
-
-
-
 
 local morphs = workspace:WaitForChild("Morphs")
 local TweenService = game:GetService("TweenService")
 
--- Clean up existing GUI
+-- Remove existing GUI if any
 local existing = player:FindFirstChild("PlayerGui") and player.PlayerGui:FindFirstChild("MorphTrackerMenu")
 if existing then existing:Destroy() end
 
--- GUI setup
+-- GUI Setup
 local gui = Instance.new("ScreenGui")
 gui.Name = "MorphTrackerMenu"
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 320, 0, 440)
+frame.Size = UDim2.new(0, 320, 0, 460)
 frame.Position = UDim2.new(0, 20, 0, 20)
 frame.BackgroundColor3 = Color3.fromRGB(50, 0, 90)
 frame.BackgroundTransparency = 0.2
@@ -34,17 +30,149 @@ frame.Active = true
 frame.Draggable = true
 frame.Parent = gui
 
+-- Tabs container
+local morphsContainer = Instance.new("Frame")
+morphsContainer.Size = UDim2.new(1, 0, 1, -60)
+morphsContainer.BackgroundTransparency = 1
+morphsContainer.Parent = frame
+
+local petsContainer = Instance.new("Frame")
+petsContainer.Size = UDim2.new(1, 0, 1, -60)
+petsContainer.BackgroundTransparency = 1
+petsContainer.Visible = false
+petsContainer.Parent = frame
+
+-- Signature
+local sig = Instance.new("TextLabel")
+sig.Size = UDim2.new(1, 0, 0, 20)
+sig.Position = UDim2.new(0, 0, 1, -30)
+sig.BackgroundTransparency = 1
+sig.TextColor3 = Color3.fromRGB(255, 0, 255)
+sig.TextStrokeTransparency = 0.3
+sig.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+sig.Font = Enum.Font.GothamBold
+sig.TextScaled = true
+sig.Text = "made by exonontop 💜"
+sig.Parent = frame
+
+-- Tab Buttons
+local tabBar = Instance.new("Frame")
+tabBar.Size = UDim2.new(1, 0, 0, 30)
+tabBar.Position = UDim2.new(0, 0, 1, -60)
+tabBar.BackgroundColor3 = Color3.fromRGB(40, 0, 70)
+tabBar.Parent = frame
+
+local morphsTabBtn = Instance.new("TextButton")
+morphsTabBtn.Size = UDim2.new(0.5, 0, 1, 0)
+morphsTabBtn.Text = "Morphs"
+morphsTabBtn.BackgroundColor3 = Color3.fromRGB(120, 0, 200)
+morphsTabBtn.Font = Enum.Font.GothamBold
+morphsTabBtn.TextColor3 = Color3.new(1, 1, 1)
+morphsTabBtn.TextSize = 14
+morphsTabBtn.Parent = tabBar
+
+local petsTabBtn = Instance.new("TextButton")
+petsTabBtn.Size = UDim2.new(0.5, 0, 1, 0)
+petsTabBtn.Position = UDim2.new(0.5, 0, 0, 0)
+petsTabBtn.Text = "Pets"
+petsTabBtn.BackgroundColor3 = Color3.fromRGB(70, 0, 110)
+petsTabBtn.Font = Enum.Font.GothamBold
+petsTabBtn.TextColor3 = Color3.fromRGB(170, 170, 170)
+petsTabBtn.TextSize = 14
+petsTabBtn.Parent = tabBar
+
+local function applyGlitterEffect(button)
+	-- Remove existing glitter first
+	for _, child in ipairs(button:GetChildren()) do
+		if child:IsA("UIGradient") or child:IsA("UIStroke") then
+			child:Destroy()
+		end
+	end
+
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 255)),
+		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 255)),
+	}
+	gradient.Rotation = 0
+	gradient.Name = "GlitterGradient"
+	gradient.Parent = button
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = 2
+	stroke.Color = Color3.fromRGB(255, 0, 255)
+	stroke.Parent = button
+
+	-- Animate the gradient
+	coroutine.wrap(function()
+		while gradient.Parent do
+			gradient.Rotation = (gradient.Rotation + 1) % 360
+			task.wait(0.03)
+		end
+	end)()
+end
+
+local function removeGlitterEffect(button)
+	for _, child in ipairs(button:GetChildren()) do
+		if child:IsA("UIGradient") or child:IsA("UIStroke") then
+			child:Destroy()
+		end
+	end
+end
+
+morphsTabBtn.MouseButton1Click:Connect(function()
+	morphsContainer.Visible = true
+	petsContainer.Visible = false
+
+	-- Apply glitter to selected tab
+	applyGlitterEffect(morphsTabBtn)
+	removeGlitterEffect(petsTabBtn)
+
+	morphsTabBtn.TextColor3 = Color3.new(1, 1, 1)
+	petsTabBtn.TextColor3 = Color3.fromRGB(170, 170, 170)
+
+	morphsTabBtn.BackgroundColor3 = Color3.fromRGB(90, 0, 130)
+	petsTabBtn.BackgroundColor3 = Color3.fromRGB(60, 0, 80)
+end)
+
+petsTabBtn.MouseButton1Click:Connect(function()
+	morphsContainer.Visible = false
+	petsContainer.Visible = true
+
+	-- Apply glitter to selected tab
+	applyGlitterEffect(petsTabBtn)
+	removeGlitterEffect(morphsTabBtn)
+
+	petsTabBtn.TextColor3 = Color3.new(1, 1, 1)
+	morphsTabBtn.TextColor3 = Color3.fromRGB(170, 170, 170)
+
+	petsTabBtn.BackgroundColor3 = Color3.fromRGB(90, 0, 130)
+	morphsTabBtn.BackgroundColor3 = Color3.fromRGB(60, 0, 80)
+end)
+
+
+-- Pets Placeholder
+local petsLabel = Instance.new("TextLabel")
+petsLabel.Size = UDim2.new(1, 0, 0, 30)
+petsLabel.BackgroundColor3 = Color3.fromRGB(60, 0, 90)
+petsLabel.TextColor3 = Color3.new(1, 1, 1)
+petsLabel.Font = Enum.Font.GothamBold
+petsLabel.TextSize = 16
+petsLabel.Text = "Pets tab coming soon 💜"
+petsLabel.Parent = petsContainer
+
+-- Morphs UI
 local layout = Instance.new("UIListLayout")
 layout.Padding = UDim.new(0, 4)
 layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Parent = frame
+layout.Parent = morphsContainer
 
--- Create buttons
 local function createButton(text, height)
 	local button = Instance.new("TextButton")
 	button.Size = UDim2.new(1, 0, 0, height or 30)
 	button.BackgroundColor3 = Color3.fromRGB(90, 0, 140)
-	button.TextColor3 = Color3.fromRGB(255, 255, 255)
+	button.TextColor3 = Color3.new(1, 1, 1)
 	button.Font = Enum.Font.GothamBold
 	button.TextSize = 14
 	button.Text = text
@@ -54,9 +182,8 @@ end
 local selectedMorph = nil
 
 local dropdownToggle = createButton("Select a Morph ▾", 30)
-dropdownToggle.Parent = frame
+dropdownToggle.Parent = morphsContainer
 
--- Search box
 local searchBox = Instance.new("TextBox")
 searchBox.Size = UDim2.new(1, 0, 0, 30)
 searchBox.PlaceholderText = "Search Morphs..."
@@ -65,11 +192,11 @@ searchBox.TextColor3 = Color3.new(1, 1, 1)
 searchBox.Font = Enum.Font.Gotham
 searchBox.TextSize = 14
 searchBox.ClearTextOnFocus = false
-searchBox.Parent = frame
+searchBox.Parent = morphsContainer
 
 local teleportButton = createButton("Tween to Selected Morph", 35)
 teleportButton.BackgroundColor3 = Color3.fromRGB(120, 0, 200)
-teleportButton.Parent = frame
+teleportButton.Parent = morphsContainer
 
 local dropdown = Instance.new("ScrollingFrame")
 dropdown.Size = UDim2.new(1, 0, 0, 0)
@@ -78,7 +205,7 @@ dropdown.ScrollBarThickness = 6
 dropdown.BackgroundColor3 = Color3.fromRGB(30, 0, 50)
 dropdown.ClipsDescendants = true
 dropdown.AutomaticCanvasSize = Enum.AutomaticSize.Y
-dropdown.Parent = frame
+dropdown.Parent = morphsContainer
 
 local dropdownList = Instance.new("UIListLayout")
 dropdownList.Padding = UDim.new(0, 2)
@@ -88,7 +215,6 @@ dropdownList.Parent = dropdown
 local dropdownOpen = false
 local maxDropdownHeight = 160
 
--- Tween to morph
 local function tweenToMorph()
 	if selectedMorph and hrp then
 		local pos = selectedMorph.Position + Vector3.new(0, 5, 0)
@@ -97,8 +223,6 @@ local function tweenToMorph()
 	end
 end
 
-
--- Toggle dropdown
 dropdownToggle.MouseButton1Click:Connect(function()
 	dropdownOpen = not dropdownOpen
 	dropdownToggle.Text = dropdownOpen and "Select a Morph ▴" or (selectedMorph and ("Selected: " .. selectedMorph.Name) or "Select a Morph ▾")
@@ -112,7 +236,6 @@ dropdownToggle.MouseButton1Click:Connect(function()
 	if dropdownOpen then updateSearchResults() end
 end)
 
--- Sort helper
 local function getSortedChildrenByName(parent)
 	local children = parent:GetChildren()
 	table.sort(children, function(a, b)
@@ -121,10 +244,8 @@ local function getSortedChildrenByName(parent)
 	return children
 end
 
--- Morph button cache for filtering
 local allMorphButtons = {}
 
--- Populate morphs (store for search later)
 for _, item in ipairs(getSortedChildrenByName(morphs)) do
 	if item:IsA("Folder") then
 		local folderLabel = Instance.new("TextLabel")
@@ -158,8 +279,7 @@ for _, item in ipairs(getSortedChildrenByName(morphs)) do
 	end
 end
 
--- Filter function
-local function updateSearchResults()
+function updateSearchResults()
 	local query = searchBox.Text:lower()
 	local shownFolders = {}
 
@@ -179,20 +299,5 @@ local function updateSearchResults()
 	end
 end
 
--- Connect search update
 searchBox:GetPropertyChangedSignal("Text"):Connect(updateSearchResults)
-
--- Teleport to morph
 teleportButton.MouseButton1Click:Connect(tweenToMorph)
-
--- Signature
-local sig = Instance.new("TextLabel")
-sig.Size = UDim2.new(1, 0, 0, 20)
-sig.BackgroundTransparency = 1
-sig.TextColor3 = Color3.fromRGB(255, 0, 255)
-sig.TextStrokeTransparency = 0.3
-sig.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
-sig.Font = Enum.Font.GothamBold
-sig.TextScaled = true
-sig.Text = "made by exonontop 💜"
-sig.Parent = frame
