@@ -1,0 +1,198 @@
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
+
+-- Respawn-safe handling
+player.CharacterAdded:Connect(function(char)
+	character = char
+	task.wait() -- tiny wait to make sure HRP exists
+	hrp = character:WaitForChild("HumanoidRootPart")
+end)
+
+
+
+
+local morphs = workspace:WaitForChild("Morphs")
+local TweenService = game:GetService("TweenService")
+
+-- Clean up existing GUI
+local existing = player:FindFirstChild("PlayerGui") and player.PlayerGui:FindFirstChild("MorphTrackerMenu")
+if existing then existing:Destroy() end
+
+-- GUI setup
+local gui = Instance.new("ScreenGui")
+gui.Name = "MorphTrackerMenu"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 320, 0, 440)
+frame.Position = UDim2.new(0, 20, 0, 20)
+frame.BackgroundColor3 = Color3.fromRGB(50, 0, 90)
+frame.BackgroundTransparency = 0.2
+frame.Active = true
+frame.Draggable = true
+frame.Parent = gui
+
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 4)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = frame
+
+-- Create buttons
+local function createButton(text, height)
+	local button = Instance.new("TextButton")
+	button.Size = UDim2.new(1, 0, 0, height or 30)
+	button.BackgroundColor3 = Color3.fromRGB(90, 0, 140)
+	button.TextColor3 = Color3.fromRGB(255, 255, 255)
+	button.Font = Enum.Font.GothamBold
+	button.TextSize = 14
+	button.Text = text
+	return button
+end
+
+local selectedMorph = nil
+
+local dropdownToggle = createButton("Select a Morph ▾", 30)
+dropdownToggle.Parent = frame
+
+-- Search box
+local searchBox = Instance.new("TextBox")
+searchBox.Size = UDim2.new(1, 0, 0, 30)
+searchBox.PlaceholderText = "Search Morphs..."
+searchBox.BackgroundColor3 = Color3.fromRGB(40, 0, 60)
+searchBox.TextColor3 = Color3.new(1, 1, 1)
+searchBox.Font = Enum.Font.Gotham
+searchBox.TextSize = 14
+searchBox.ClearTextOnFocus = false
+searchBox.Parent = frame
+
+local teleportButton = createButton("Tween to Selected Morph", 35)
+teleportButton.BackgroundColor3 = Color3.fromRGB(120, 0, 200)
+teleportButton.Parent = frame
+
+local dropdown = Instance.new("ScrollingFrame")
+dropdown.Size = UDim2.new(1, 0, 0, 0)
+dropdown.CanvasSize = UDim2.new(0, 0, 0, 0)
+dropdown.ScrollBarThickness = 6
+dropdown.BackgroundColor3 = Color3.fromRGB(30, 0, 50)
+dropdown.ClipsDescendants = true
+dropdown.AutomaticCanvasSize = Enum.AutomaticSize.Y
+dropdown.Parent = frame
+
+local dropdownList = Instance.new("UIListLayout")
+dropdownList.Padding = UDim.new(0, 2)
+dropdownList.SortOrder = Enum.SortOrder.LayoutOrder
+dropdownList.Parent = dropdown
+
+local dropdownOpen = false
+local maxDropdownHeight = 160
+
+-- Tween to morph
+local function tweenToMorph()
+	if selectedMorph and hrp then
+		local pos = selectedMorph.Position + Vector3.new(0, 5, 0)
+		local tween = TweenService:Create(hrp, TweenInfo.new(1, Enum.EasingStyle.Sine), {CFrame = CFrame.new(pos)})
+		tween:Play()
+	end
+end
+
+
+-- Toggle dropdown
+dropdownToggle.MouseButton1Click:Connect(function()
+	dropdownOpen = not dropdownOpen
+	dropdownToggle.Text = dropdownOpen and "Select a Morph ▴" or (selectedMorph and ("Selected: " .. selectedMorph.Name) or "Select a Morph ▾")
+	dropdown:TweenSize(
+		UDim2.new(1, 0, 0, dropdownOpen and maxDropdownHeight or 0),
+		Enum.EasingDirection.Out,
+		Enum.EasingStyle.Sine,
+		0.25,
+		true
+	)
+	if dropdownOpen then updateSearchResults() end
+end)
+
+-- Sort helper
+local function getSortedChildrenByName(parent)
+	local children = parent:GetChildren()
+	table.sort(children, function(a, b)
+		return a.Name:lower() < b.Name:lower()
+	end)
+	return children
+end
+
+-- Morph button cache for filtering
+local allMorphButtons = {}
+
+-- Populate morphs (store for search later)
+for _, item in ipairs(getSortedChildrenByName(morphs)) do
+	if item:IsA("Folder") then
+		local folderLabel = Instance.new("TextLabel")
+		folderLabel.Size = UDim2.new(1, 0, 0, 20)
+		folderLabel.BackgroundColor3 = Color3.fromRGB(60, 0, 100)
+		folderLabel.TextColor3 = Color3.new(1, 1, 1)
+		folderLabel.Font = Enum.Font.GothamBold
+		folderLabel.TextScaled = true
+		folderLabel.Text = "[" .. item.Name .. "]"
+		folderLabel.Parent = dropdown
+
+		for _, morph in ipairs(getSortedChildrenByName(item)) do
+			if morph:IsA("BasePart") then
+				local btn = createButton(morph.Name, 25)
+				btn.MouseButton1Click:Connect(function()
+					selectedMorph = morph
+					dropdownToggle.Text = "Selected: " .. morph.Name
+				end)
+				btn.Parent = dropdown
+				table.insert(allMorphButtons, {button = btn, morph = morph, folder = folderLabel})
+			end
+		end
+	elseif item:IsA("BasePart") then
+		local btn = createButton(item.Name, 25)
+		btn.MouseButton1Click:Connect(function()
+			selectedMorph = item
+			dropdownToggle.Text = "Selected: " .. item.Name
+		end)
+		btn.Parent = dropdown
+		table.insert(allMorphButtons, {button = btn, morph = item})
+	end
+end
+
+-- Filter function
+local function updateSearchResults()
+	local query = searchBox.Text:lower()
+	local shownFolders = {}
+
+	for _, entry in ipairs(allMorphButtons) do
+		local match = string.find(entry.morph.Name:lower(), query)
+		entry.button.Visible = match ~= nil
+
+		if entry.folder and match then
+			shownFolders[entry.folder] = true
+		end
+	end
+
+	for _, entry in ipairs(allMorphButtons) do
+		if entry.folder then
+			entry.folder.Visible = shownFolders[entry.folder] or false
+		end
+	end
+end
+
+-- Connect search update
+searchBox:GetPropertyChangedSignal("Text"):Connect(updateSearchResults)
+
+-- Teleport to morph
+teleportButton.MouseButton1Click:Connect(tweenToMorph)
+
+-- Signature
+local sig = Instance.new("TextLabel")
+sig.Size = UDim2.new(1, 0, 0, 20)
+sig.BackgroundTransparency = 1
+sig.TextColor3 = Color3.fromRGB(255, 0, 255)
+sig.TextStrokeTransparency = 0.3
+sig.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+sig.Font = Enum.Font.GothamBold
+sig.TextScaled = true
+sig.Text = "made by exonontop 💜"
+sig.Parent = frame
